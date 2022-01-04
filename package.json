@@ -1,0 +1,17 @@
+{
+  "name": "layer-generator",
+  "version": "0.0.1",
+  "description": "Generate layers with different colors based on a given reference image",
+  "main": "index.js",
+  "bin": "index.js",
+  "scripts": {
+    "generate": "node index.js"
+  },
+  "author": "somebaddev",
+  "license": "ISC",
+  "dependencies": {
+    "canvas": "^2.8.0",
+    "color-name-list": "^8.37.0",
+    "nearest-color": "^0.4.4"
+  }
+}
