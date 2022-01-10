@@ -12,6 +12,7 @@
   "dependencies": {
     "canvas": "^2.8.0",
     "color-name-list": "^8.37.0",
-    "nearest-color": "^0.4.4"
+    "nearest-color": "^0.4.4",
+    "tinycolor2": "^1.4.2"
   }
 }

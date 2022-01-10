@@ -2,13 +2,14 @@ const fs = require("fs");
 const { createCanvas, loadImage } = require("canvas");
 const nearestColor = require("nearest-color");
 const colorsList = require("color-name-list");
+const tinycolor = require("tinycolor2");
 
 const PATH = process.cwd();
 const REF = `${PATH}/references`; // Reference images folder
 const LAYERS = `${PATH}/layers`; // Output layers folder
 
 // Variations per reference image
-const VARIATIONS = 5;
+const VARIATIONS = 1000;
 
 // Change to match your PNG dimensions
 const SIZE = {
@@ -28,6 +29,12 @@ const getReadableProps = (hex) => {
   const nearest = nearestColor.from(colors);
 
   return nearest(hex);
+};
+
+const randomPastelColor = () => {
+  const hsla = `hsla(${~~(360 * Math.random())}, 70%, 80%, 1)`;
+
+  return tinycolor(hsla).toHexString();
 };
 
 const generate = () => {
@@ -60,9 +67,7 @@ const generate = () => {
       // Iterate variations
       for (let i = 0; i < VARIATIONS; i++) {
         // Generate random color
-        const color = "#000000".replace(/0/g, function () {
-          return (~~(Math.random() * 16)).toString(16);
-        });
+        const color = randomPastelColor();
 
         // Get color name
         const { name } = getReadableProps(color);
