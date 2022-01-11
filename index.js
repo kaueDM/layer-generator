@@ -3,18 +3,19 @@ const { createCanvas, loadImage } = require("canvas");
 const nearestColor = require("nearest-color");
 const colorsList = require("color-name-list");
 const tinycolor = require("tinycolor2");
+const removeAccents = require("remove-accents");
 
 const PATH = process.cwd();
 const REF = `${PATH}/references`; // Reference images folder
 const LAYERS = `${PATH}/layers`; // Output layers folder
 
 // Variations per reference image
-const VARIATIONS = 100;
+const VARIATIONS = 1000;
 
 // Change to match your PNG dimensions
 const SIZE = {
-  width: 32,
-  height: 32,
+  width: 150,
+  height: 150,
 };
 
 const canvas = createCanvas(SIZE.width, SIZE.height);
@@ -26,12 +27,9 @@ const getReadableProps = (hex) => {
     (o, { name, hex }) => Object.assign(o, { [name]: hex }),
     {}
   );
-  const nearest = nearestColor
-    ?.from(colors)
-    ?.normalize("NFD")
-    ?.replace(/\p{Diacritic}/gu, "");
+  const nearest = nearestColor.from(colors);
 
-  return nearest(hex);
+  return removeAccents(nearest(hex)?.name);
 };
 
 // Colors generated from https://www.researchgate.net/publication/310443424_Improvement_of_Haar_Feature_Based_Face_Detection_in_OpenCV_Incorporating_Human_Skin_Color_Characteristic
@@ -67,6 +65,24 @@ const randomPastelColor = () => {
   return tinycolor(hsla).toHexString();
 };
 
+const paintPixels = (color) => {
+  const rgb = tinycolor(color).toRgb();
+  const image = context.getImageData(0, 0, SIZE.width, SIZE.height);
+  const pixels = image?.data;
+
+  for (let pixel = 0; pixel < pixels.length; pixel += 4) {
+    // If pixel is not transparent, paint it with a given color
+    if (pixels[pixel + 3] > 0) {
+      pixels[pixel] = rgb.r;
+      pixels[pixel + 1] = rgb.g;
+      pixels[pixel + 2] = rgb.b;
+      pixels[pixel + 3] = 255;
+    }
+  }
+
+  context.putImageData(image, 0, 0);
+};
+
 const generate = () => {
   // Remove old ~layers~ folder
   if (fs.existsSync(LAYERS)) {
@@ -79,6 +95,8 @@ const generate = () => {
   // Get reference images
   const references = fs.readdirSync(REF);
 
+  // Get if reference image is "Face", which have a different behavior
+
   // Iterate references
   references.forEach((reference) => {
     // Get folder name and file extension based on reference file name
@@ -87,57 +105,42 @@ const generate = () => {
     const folder = parts[0];
     const ext = parts[1];
 
+    const isFace = folder === "Face";
+
     loadImage(`${REF}\\${reference}`).then((image) => {
+      // Remove antialising
+      context.imageSmoothingEnabled = false;
+
       // Draw image to canvas
       context.drawImage(image, 0, 0, SIZE.width, SIZE.height);
 
-      // Set composite operation to source-in
+      // Set composition mode to source-in
       context.globalCompositeOperation = "source-in";
 
+      const MAX = isFace ? skinColors.length - 1 : VARIATIONS;
+
       // Iterate variations
-      for (let i = 0; i < VARIATIONS; i++) {
+      for (let i = 0; i < MAX; i++) {
         // Generate random color
-        const color = folder === "Face" ? skinColors?.[i] : randomPastelColor();
+        const color = isFace ? skinColors?.[i] : randomPastelColor();
 
-        if (folder === "Face" && i <= skinColors.length - 1) {
-          const { name } = getReadableProps(color);
+        const name = getReadableProps(color);
 
-          // Paint image with random color
-          context.fillStyle = color;
-          context.fillRect(0, 0, SIZE.width, SIZE.height);
+        console.log(`Generating layer "${folder}" with "${name}"`);
 
-          console.log(`Generating layer "${folder}" with "${name}"`);
+        // Paint image with random color
+        paintPixels(color);
 
-          const buffer = canvas.toBuffer(`image/${ext}`);
+        // Generate new image file
+        const buffer = canvas.toBuffer(`image/${ext}`);
 
-          const LAYER_PATH = `${LAYERS}\\${folder}`;
+        const LAYER_PATH = `${LAYERS}\\${folder}`;
 
-          if (!fs.existsSync(LAYER_PATH)) {
-            fs.mkdirSync(LAYER_PATH);
-          }
-
-          fs.writeFileSync(`${LAYER_PATH}\\${name}.${ext}`, buffer);
+        if (!fs.existsSync(LAYER_PATH)) {
+          fs.mkdirSync(LAYER_PATH);
         }
 
-        if (folder !== "Face") {
-          const { name } = getReadableProps(color);
-
-          // Paint image with random color
-          context.fillStyle = color;
-          context.fillRect(0, 0, SIZE.width, SIZE.height);
-
-          console.log(`Generating layer "${folder}" with "${name}"`);
-
-          const buffer = canvas.toBuffer(`image/${ext}`);
-
-          const LAYER_PATH = `${LAYERS}\\${folder}`;
-
-          if (!fs.existsSync(LAYER_PATH)) {
-            fs.mkdirSync(LAYER_PATH);
-          }
-
-          fs.writeFileSync(`${LAYER_PATH}\\${name}.${ext}`, buffer);
-        }
+        fs.writeFileSync(`${LAYER_PATH}\\${name}.${ext}`, buffer);
       }
     });
   });
